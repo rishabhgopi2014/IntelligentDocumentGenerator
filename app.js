@@ -1438,25 +1438,130 @@ async function generateRepoRecommendation(repoName, e) {
             'core-ledger-system': {
                 why: 'Synchronous REST integration introduces tight coupling and risk of distributed deadlocks when connected to external clearing.',
                 what: 'Implement event-driven Saga pattern via Kafka to manage distributed transactions reliably.',
-                pointers: ['Use Topic-based choreography.', 'Implement native compensating transactions.', 'Ensure idempotency in ledger updates.']
+                pointers: ['Use Topic-based choreography.', 'Implement native compensating transactions.', 'Ensure idempotency in ledger updates.'],
+                securityChecks: [
+                    { id: 'bola', name: 'Authorization (BOLA)', status: 'fail',
+                      finding: 'POST /api/v1/ledger/entries does not validate that the authenticated user_id owns the account being debited. Any authenticated user can post journal entries against arbitrary account IDs — a critical Broken Object-Level Authorization gap.' },
+                    { id: 'schema', name: 'ISO 20022 Schema Validation', status: 'warn',
+                      finding: 'CdtrAcct and DbtrAcct fields lack strict length and format validators. InstdAmt has no currency code enforcement against the ISO 4217 allowlist. Non-conformant messages are accepted and forwarded to downstream clearing.' },
+                    { id: 'idempotency', name: 'Financial Integrity (Idempotency)', status: 'fail',
+                      finding: 'POST /api/v1/ledger/entries and POST /api/v1/ledger/transfer are missing Idempotency-Key header enforcement. Network retries on timeout cause duplicate journal entries, violating double-entry integrity and producing ghost debits.' },
+                    { id: 'privacy', name: 'Data Privacy (Excessive Exposure)', status: 'fail',
+                      finding: 'GET /api/v1/ledger/entries/{id} returns full IBAN/BBAN account numbers and counterparty PII in the standard response body. INFO-level debug logs emit raw transaction objects including masked but reconstructable card PANs — violates GDPR Article 5(1)(c).' }
+                ]
             },
             'payment-gateway-service': {
                 why: 'Fragmented authentication validation logic duplicates work across channels and creates security gaps.',
                 what: 'Delegate all OAuth 2.0 / mTLS validation to the API Gateway layer.',
-                pointers: ['Migrate local token parsing to Gateway plugins.', 'Enforce mTLS explicitly internally.', 'Remove duplicated JWT validation code from controllers.']
+                pointers: ['Migrate local token parsing to Gateway plugins.', 'Enforce mTLS explicitly internally.', 'Remove duplicated JWT validation code from controllers.'],
+                securityChecks: [
+                    { id: 'bola', name: 'Authorization (BOLA)', status: 'warn',
+                      finding: 'GET /api/v1/payment/{id} validates OAuth scope but does not assert that the payment\'s originating user_id matches the token subject. Internal service-to-service calls bypass this check entirely via a shared service account credential.' },
+                    { id: 'schema', name: 'ISO 20022 Schema Validation', status: 'fail',
+                      finding: 'pacs.008 (FIToFI Customer Credit Transfer) messages are dispatched without validating mandatory ISO 20022 fields: MsgId uniqueness per transaction, CreDtTm timezone format, and InstdAmt CcyOfTrf against beneficiary jurisdiction rules. Malformed messages are silently accepted.' },
+                    { id: 'idempotency', name: 'Financial Integrity (Idempotency)', status: 'fail',
+                      finding: 'POST /api/v1/payment/initiate has no Idempotency-Key header check. Load balancer retries on 5xx responses have caused duplicate payment submissions to the RTP network in production, resulting in double-charge incidents.' },
+                    { id: 'privacy', name: 'Data Privacy (Excessive Exposure)', status: 'warn',
+                      finding: 'Payment confirmation responses include full beneficiary IBAN and sort code in the response body — only the last 4 digits should be returned. ERROR-level stack traces expose raw payment objects containing account metadata that should be redacted before logging.' }
+                ]
             },
             'fraud-ml-engine': {
                 why: 'High ML latency stalls payment workflows and causes cascading timeouts upstream.',
                 what: 'Introduce Proxy-level Circuit Breakers in front of synchronous ML inference.',
-                pointers: ['Add Resilience4j proxy wrapper.', 'Implement Redis caching for safe entities.', 'Configure strict 100ms fallbacks.']
+                pointers: ['Add Resilience4j proxy wrapper.', 'Implement Redis caching for safe entities.', 'Configure strict 100ms fallbacks.'],
+                securityChecks: [
+                    { id: 'bola', name: 'Authorization (BOLA)', status: 'pass',
+                      finding: 'BOLA risk is low: the fraud engine is an internal-only service with no user-facing endpoints. All invocations are service-to-service via mTLS with service account scope validation at the gateway level.' },
+                    { id: 'schema', name: 'ISO 20022 Schema Validation', status: 'warn',
+                      finding: 'Incoming transaction payloads from the Payment Gateway are not re-validated against ISO 20022 schema at the fraud engine boundary. A malformed CdtrAcct or missing InstdAmt field could silently produce an incorrect risk score without raising an error.' },
+                    { id: 'idempotency', name: 'Financial Integrity (Idempotency)', status: 'pass',
+                      finding: 'The ML inference endpoint is stateless and naturally idempotent — identical payloads return deterministic scores. No Idempotency-Key enforcement is required for this read-only risk scoring surface.' },
+                    { id: 'privacy', name: 'Data Privacy (Excessive Exposure)', status: 'fail',
+                      finding: 'The training data pipeline logs full transaction payloads including account holder names and partial card numbers to stdout, which is captured unmasked by the ELK stack. This constitutes excessive PII exposure and violates GDPR Article 5(1)(c) data minimisation.' }
+                ]
+            },
+            'kyc-verification-service': {
+                why: 'Sequential external API calls for ID verification and AML screening create a single point of failure with no fallback strategy.',
+                what: 'Introduce the Saga pattern with compensating transactions to handle partial KYC workflow failures gracefully.',
+                pointers: ['Implement a KYC state machine with rollback events.', 'Add async retry queues for transient ID provider failures.', 'Decouple AML screening into an independent saga step.'],
+                securityChecks: [
+                    { id: 'bola', name: 'Authorization (BOLA)', status: 'fail',
+                      finding: 'POST /api/v1/kyc/{customerId}/submit allows any authenticated token to Upload documents for an arbitrary customerId path parameter. The service does not verify the token subject matches the customerId, enabling one user to initiate KYC on behalf of another.' },
+                    { id: 'schema', name: 'ISO 20022 Schema Validation', status: 'pass',
+                      finding: 'KYC does not directly produce ISO 20022 payment messages. However, customer identity objects (CtryOfRes, PstlAdr) correctly conform to ISO 20022 party identification field definitions — no schema gaps detected.' },
+                    { id: 'idempotency', name: 'Financial Integrity (Idempotency)', status: 'warn',
+                      finding: 'POST /api/v1/kyc/initiate lacks an Idempotency-Key. Double submission from UI retries can create duplicate KYC case records for the same customer, requiring manual deduplication by compliance staff.' },
+                    { id: 'privacy', name: 'Data Privacy (Excessive Exposure)', status: 'fail',
+                      finding: 'GET /api/v1/kyc/{customerId}/status returns full document metadata including national ID numbers, date of birth, and address in the response. These fields are not required by the calling UI and should be masked or excluded from standard API responses.' }
+                ]
+            },
+            'loan-origination-api': {
+                why: 'Loan origination lacks transactional guarantees across credit bureau, underwriting, and ledger calls — partial failures leave applications in inconsistent states.',
+                what: 'Implement CQRS with Event Sourcing to maintain a full audit trail of application state transitions.',
+                pointers: ['Model each loan stage as an immutable domain event.', 'Use a projection to build the current application state.', 'Replay events for regulatory audit and dispute resolution.'],
+                securityChecks: [
+                    { id: 'bola', name: 'Authorization (BOLA)', status: 'fail',
+                      finding: 'GET /api/v1/loans/{loanId} does not validate the token subject against the loan\'s applicant_id. Any authenticated user who discovers a valid loanId can retrieve full application data including income figures, credit score, and collateral details.' },
+                    { id: 'schema', name: 'ISO 20022 Schema Validation', status: 'warn',
+                      finding: 'Loan disbursement instructions use a custom payment object that does not validate against ISO 20022 camt.054 (credit notification) schema. The InstdAmt field is missing currency code validation and accepts negative values.' },
+                    { id: 'idempotency', name: 'Financial Integrity (Idempotency)', status: 'fail',
+                      finding: 'POST /api/v1/loans/apply and POST /api/v1/loans/{id}/disburse both lack Idempotency-Key enforcement. Network retries on disbursement calls have caused cases where loan amounts were credited to applicant accounts multiple times.' },
+                    { id: 'privacy', name: 'Data Privacy (Excessive Exposure)', status: 'warn',
+                      finding: 'Loan list endpoints (GET /api/v1/loans) return full SSN/NIN, annual income, and employment details in paginated results, even when the caller only needs loan ID and status for dashboard rendering. Apply field-level projection.' }
+                ]
+            },
+            'aml-screening-pipeline': {
+                why: 'Batch AML processing runs on a nightly schedule, creating a 24-hour detection lag window for high-risk entities.',
+                what: 'Migrate to near-real-time micro-batch processing triggered by entity change events via Kafka.',
+                pointers: ['Consume entity-change Kafka topic for incremental screening.', 'Cache watchlist snapshots in Redis with hourly refresh.', 'Emit screening results as structured CloudEvents.'],
+                securityChecks: [
+                    { id: 'bola', name: 'Authorization (BOLA)', status: 'pass',
+                      finding: 'AML pipeline is an internal batch process with no user-facing REST endpoints. Authorization attack surface is minimal — job execution is restricted to service accounts with pipeline-specific IAM roles.' },
+                    { id: 'schema', name: 'ISO 20022 Schema Validation', status: 'warn',
+                      finding: 'Watchlist hit records are serialised using a custom schema rather than ISO 20022 acmt.023 (account management) format. This prevents structural interoperability with regulatory reporting systems expecting standard message formats.' },
+                    { id: 'idempotency', name: 'Financial Integrity (Idempotency)', status: 'warn',
+                      finding: 'Batch job restarts can reprocess already-screened entities and produce duplicate alert records. The pipeline lacks a processed-entity checkpoint store — idempotent deduplication logic is needed before alert emission.' },
+                    { id: 'privacy', name: 'Data Privacy (Excessive Exposure)', status: 'fail',
+                      finding: 'Screening result logs emit the full matched entity record including name, nationality, and reason codes to a shared log sink accessible by non-compliance teams. PII in screening results must be restricted to the Compliance role only.' }
+                ]
+            },
+            'iso20022-adapter': {
+                why: 'The adapter performs structural transformation only, with no semantic validation of ISO 20022 business rules.',
+                what: 'Add a validation layer using an ISO 20022 schema registry to reject non-conformant messages before transformation.',
+                pointers: ['Integrate an XSD/JSON Schema validator at the adapter entry point.', 'Return structured validation error responses (not generic 400).', 'Log schema violations with message correlation IDs for audit.'],
+                securityChecks: [
+                    { id: 'bola', name: 'Authorization (BOLA)', status: 'pass',
+                      finding: 'The ISO 20022 adapter is a message-transformation layer with no ownership-mapped resources. BOLA is not applicable — all channel access is pre-authorised at the API Gateway via mTLS before reaching this service.' },
+                    { id: 'schema', name: 'ISO 20022 Schema Validation', status: 'fail',
+                      finding: 'The adapter transforms messages between formats but does NOT validate against the official ISO 20022 XSD schemas. Critical fields (MsgId, CreDtTm, NbOfTxs, CtrlSum) are forwarded without conformance checks. Malformed pacs.008 and camt.054 messages pass through unchallenged.' },
+                    { id: 'idempotency', name: 'Financial Integrity (Idempotency)', status: 'warn',
+                      finding: 'The adapter does not track MsgId uniqueness across sessions. Duplicate ISO 20022 messages re-submitted by upstream systems (e.g., on timeout) are re-transformed and forwarded, potentially producing duplicate instructions downstream.' },
+                    { id: 'privacy', name: 'Data Privacy (Excessive Exposure)', status: 'warn',
+                      finding: 'Full ISO 20022 message payloads — including creditor name, IBAN, and transaction reference — are logged at DEBUG level during transformation. These logs must be masked before being forwarded to centralised log infrastructure accessible outside the payments team.' }
+                ]
             }
         };
+
+        const defaultSecurityChecks = (r) => [
+            { id: 'bola', name: 'Authorization (BOLA)', status: 'warn',
+              finding: `Parameterised endpoints (e.g., GET /api/v1/${r.domain.toLowerCase()}/{id}) in the ${r.name} service authenticate via OAuth 2.0 token but do not assert the token subject owns the requested resource. Any valid token can enumerate resources by iterating IDs.` },
+            { id: 'schema', name: 'ISO 20022 Schema Validation', status: 'warn',
+              finding: `Request/response DTOs in ${r.name} have not been formally validated against ISO 20022 message definitions. Fields such as CdtrAcct, DbtrAcct, and InstdAmt lack strict type, length, and format constraints at the service boundary.` },
+            { id: 'idempotency', name: 'Financial Integrity (Idempotency)', status: 'fail',
+              finding: `POST and PUT endpoints in ${r.name} do not enforce an Idempotency-Key header. In a regulated banking context, network retries on transient failures can produce duplicate operations, data duplication, or double financial postings.` },
+            { id: 'privacy', name: 'Data Privacy (Excessive Exposure)', status: 'warn',
+              finding: `Standard API responses from ${r.name} return more PII fields than the calling context requires. Full account identifiers, customer names, and financial figures should be masked or tokenised at the response serialisation layer per data minimisation principles.` }
+        ];
 
         const recData = mockRecs[repoName] || {
             why: `The ${repo.lang} codebase exhibits high cyclomatic complexity in its core service orchestrations.`,
             what: 'Refactor monolithic components into focused bounded domains based on Hexagonal Architecture.',
-            pointers: ['Separate business entities from framework dependencies.', 'Extract external API calls into Port/Adapter interfaces.', 'Decouple database DAOs from controller validation.']
+            pointers: ['Separate business entities from framework dependencies.', 'Extract external API calls into Port/Adapter interfaces.', 'Decouple database DAOs from controller validation.'],
+            securityChecks: defaultSecurityChecks(repo)
         };
+
+        // Merge default security checks if the specific mockRec doesn't already define them
+        const resolvedSecurityChecks = recData.securityChecks || defaultSecurityChecks(repo);
         
         state.recommendations.unshift({
             repo: repoName,
@@ -1464,6 +1569,7 @@ async function generateRepoRecommendation(repoName, e) {
             why: recData.why,
             what: recData.what,
             pointers: recData.pointers,
+            securityChecks: resolvedSecurityChecks,
             type: repoName === 'core-ledger-system' ? 'override' : 'standard',
             priority: 'High'
         });
@@ -1486,6 +1592,61 @@ function renderRecommendations() {
     }
     
     const tagColors = { 'override': 'tag-override', 'custom': 'tag-custom', 'standard': 'tag-standard' };
+
+    const secCheckMeta = {
+        bola:        { icon: '🔐', label: 'Authorization (BOLA)' },
+        schema:      { icon: '📋', label: 'ISO 20022 Schema Validation' },
+        idempotency: { icon: '🔁', label: 'Financial Integrity (Idempotency-Key)' },
+        privacy:     { icon: '👁️', label: 'Data Privacy (Excessive Exposure)' }
+    };
+
+    const statusMeta = {
+        fail: { cls: 'sec-check-fail', badge: 'FAIL',  dot: '#f43f5e' },
+        warn: { cls: 'sec-check-warn', badge: 'WARN',  dot: '#f59e0b' },
+        pass: { cls: 'sec-check-pass', badge: 'PASS',  dot: '#10b981' }
+    };
+
+    const renderSecurityChecks = (checks) => {
+        if (!checks || checks.length === 0) return '';
+        const failCount = checks.filter(c => c.status === 'fail').length;
+        const warnCount = checks.filter(c => c.status === 'warn').length;
+        const passCount = checks.filter(c => c.status === 'pass').length;
+        const summaryColor = failCount > 0 ? 'var(--accent-rose)' : warnCount > 0 ? 'var(--accent-amber)' : 'var(--accent-green)';
+        const summaryIcon  = failCount > 0 ? '🚨' : warnCount > 0 ? '⚠️' : '✅';
+
+        return `
+        <div class="sec-audit-block">
+            <div class="sec-audit-header">
+                <span>${summaryIcon} Security &amp; Compliance Audit</span>
+                <div class="sec-audit-score">
+                    ${failCount > 0 ? `<span class="sec-score-badge sec-score-fail">${failCount} Fail</span>` : ''}
+                    ${warnCount > 0 ? `<span class="sec-score-badge sec-score-warn">${warnCount} Warn</span>` : ''}
+                    ${passCount > 0 ? `<span class="sec-score-badge sec-score-pass">${passCount} Pass</span>` : ''}
+                </div>
+            </div>
+            <div class="sec-audit-legend">
+                <span class="sec-legend-item" style="color:var(--accent-rose)">🔐 Authorization (BOLA)</span>
+                <span class="sec-legend-item" style="color:var(--accent-cyan)">📋 ISO 20022 Schema</span>
+                <span class="sec-legend-item" style="color:var(--accent-amber)">🔁 Idempotency</span>
+                <span class="sec-legend-item" style="color:var(--accent-purple)">👁️ Data Privacy</span>
+            </div>
+            ${checks.map(c => {
+                const meta = secCheckMeta[c.id] || { icon: '🔎', label: c.id };
+                const sm   = statusMeta[c.status] || statusMeta['warn'];
+                return `
+                <div class="sec-check-row ${sm.cls}">
+                    <div class="sec-check-left">
+                        <span class="sec-check-icon">${meta.icon}</span>
+                        <div class="sec-check-label-wrap">
+                            <span class="sec-check-label">${meta.label}</span>
+                            <span class="sec-check-badge ${sm.cls}-badge">${sm.badge}</span>
+                        </div>
+                    </div>
+                    <p class="sec-check-finding">${c.finding}</p>
+                </div>`;
+            }).join('')}
+        </div>`;
+    };
     
     grid.innerHTML = state.recommendations.map(r => `
         <div class="compare-card" style="margin-bottom: 20px;">
@@ -1511,10 +1672,12 @@ function renderRecommendations() {
                 </div>
             </div>
             
-            <h4 style="margin-bottom: 8px; font-size: 0.9rem; color:var(--text-primary);">📌 Proven Pointers & Action Items</h4>
-            <ul style="color: var(--text-secondary); font-size: 0.88rem; line-height: 1.7; padding-left: 20px; list-style-type: square;">
+            <h4 style="margin-bottom: 8px; font-size: 0.9rem; color:var(--text-primary);">📌 Proven Pointers &amp; Action Items</h4>
+            <ul style="color: var(--text-secondary); font-size: 0.88rem; line-height: 1.7; padding-left: 20px; list-style-type: square; margin-bottom: 20px;">
                 ${r.pointers.map(p => `<li>${p}</li>`).join('')}
             </ul>
+
+            ${renderSecurityChecks(r.securityChecks)}
         </div>
     `).join('');
 }
