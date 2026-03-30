@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Nexus Banking Architect - Enterprise-scale automated technical documentation for banking ecosystems">
+    <title>Nexus Banking Architect</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markmap-lib@0.15.4/dist/browser/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markmap-view@0.15.4/dist/browser/index.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"></script>
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon">
+                <svg viewBox="0 0 32 32" fill="none"><path d="M16 2L28 9v14l-12 7L4 23V9l12-7z" stroke="url(#g1)" stroke-width="2"/><path d="M16 8l8 4.5v9L16 26l-8-4.5v-9L16 8z" fill="url(#g2)" opacity="0.3"/><defs><linearGradient id="g1" x1="4" y1="2" x2="28" y2="30"><stop stop-color="#00f0ff"/><stop offset="1" stop-color="#7c3aed"/></linearGradient><linearGradient id="g2" x1="8" y1="8" x2="24" y2="26"><stop stop-color="#00f0ff"/><stop offset="1" stop-color="#7c3aed"/></linearGradient></defs></svg>
+            </div>
+            <div class="brand-text">
+                <span class="brand-name">Nexus</span>
+                <span class="brand-sub">Banking Architect</span>
+            </div>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="#" class="nav-item active" data-page="overview" id="nav-overview">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+                <span>Product Overview</span>
+            </a>
+            <!-- Nested Selection for Product Overview -->
+            <div class="sidebar-submenu" style="display: flex; flex-direction: column; gap: 4px; padding: 4px 16px 16px 52px;">
+                <a href="#" class="nav-sub-item active" data-bank="generic" style="color: var(--text-primary); text-decoration: none; font-size: 0.85rem; padding: 6px 10px; border-radius: 4px; background: rgba(124, 58, 237, 0.15); border-left: 2px solid var(--accent-purple); transition: 0.2s;">Generic</a>
+                <a href="#" class="nav-sub-item" data-bank="citizenbank" style="color: var(--text-secondary); text-decoration: none; font-size: 0.85rem; padding: 6px 10px; border-radius: 4px; border-left: 2px solid transparent; transition: 0.2s;">CitizenBank</a>
+            </div>
+            
+            <a href="#" class="nav-item" data-page="generator" id="nav-generator">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span>Doc Generator</span>
+            </a>
+            <a href="#" class="nav-item" data-page="repos" id="nav-repos">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <span>Repositories</span>
+            </a>
+            <a href="#" class="nav-item" data-page="compare" id="nav-compare">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                <span>Compare</span>
+            </a>
+            <a href="#" class="nav-item" data-page="recommendations" id="nav-recommendations">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A6 6 0 1 0 7.5 11.5c.76.76 1.23 1.52 1.41 2.5z"/></svg>
+                <span>Recommendations</span>
+            </a>
+            <a href="#" class="nav-item" data-page="settings" id="nav-settings">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+                <span>AI Settings</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="status-badge"><span class="status-dot"></span>System Online</div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <header class="top-bar">
+            <button class="menu-toggle" id="menuToggle">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <div class="breadcrumb" id="breadcrumb">Product Overview</div>
+            <div class="top-actions">
+                <div class="topbar-model-wrap">
+                    <span class="model-chip-dot" id="modelChipDot"></span>
+                    <select class="topbar-model-select" id="topbarModelSelect" title="Select AI Model">
+                        <option value="">— Select Model —</option>
+                    </select>
+                </div>
+                <div class="avatar">NA</div>
+            </div>
+        </header>
+
+        <!-- Page: Product Overview -->
+        <div class="page active" id="page-overview">
+            <div class="page-header">
+                <h1>Product Overview</h1>
+                <p class="page-desc">Enterprise-wide view of your banking ecosystem documentation</p>
+            </div>
+            <div class="stats-row">
+                <div class="stat-card"><div class="stat-value" id="stat-repos">0</div><div class="stat-label">Repositories</div></div>
+                <div class="stat-card"><div class="stat-value" id="stat-services">0</div><div class="stat-label">Microservices</div></div>
+                <div class="stat-card"><div class="stat-value" id="stat-apis">0</div><div class="stat-label">API Endpoints</div></div>
+                <div class="stat-card"><div class="stat-value" id="stat-docs">0</div><div class="stat-label">Docs Generated</div></div>
+            </div>
+            <h2 class="section-title">Banking Domains</h2>
+            <div class="domain-grid" id="domainGrid"></div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 class="section-title" style="margin-bottom: 0;">System Architecture</h2>
+                <div class="select-wrap" style="width: 250px;">
+                    <select class="select" id="archFormatSelect">
+                        <option value="mindmap">Mindmap (Component & APIs)</option>
+                        <option value="cytoscape">System Dependency Map (HLD)</option>
+                        <option value="flowchart">Mermaid Flowchart (LLD)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mermaid-container" id="archDiagram"></div>
+        </div>
+        
+        <!-- Page: Recommendations -->
+        <div class="page" id="page-recommendations">
+            <div class="page-header">
+                <h1 style="margin-bottom:6px">Architecture Recommendations</h1>
+                <p class="page-desc">Per-repository actionable structural insights and design pattern optimizations</p>
+            </div>
+            
+            <div class="compare-results" id="recommendationGrid">
+                <!-- Mocked Recommendations generated via JS -->
+            </div>
+        </div>
+
+        <!-- Page: Doc Generator -->
+        <div class="page" id="page-generator">
+            <div class="page-header">
+                <h1>Documentation Generator</h1>
+                <p class="page-desc">Generate comprehensive technical documentation from source code</p>
+            </div>
+            <div class="generator-layout">
+                <div class="source-panel">
+                    <h2 class="section-title">Source Selection</h2>
+                    <div class="tab-bar" id="sourceTabBar">
+                        <button class="tab active" data-tab="url">Repository URL</button>
+                        <button class="tab" data-tab="upload">File Upload</button>
+                        <button class="tab" data-tab="bulk">Bulk List</button>
+                    </div>
+                    <div class="tab-content active" id="tab-url">
+                        <label class="input-label">Repository URL (Recursive)</label>
+                        <div class="input-group">
+                            <input type="url" class="input" id="repoUrl" placeholder="https://github.com/org/repo.git">
+                            <button class="btn btn-primary" id="addUrlBtn">Add</button>
+                        </div>
+                        <label class="checkbox-label"><input type="checkbox" id="recursiveClone" checked> Recursive clone (include submodules)</label>
+                    </div>
+                    <div class="tab-content" id="tab-upload">
+                        <div class="upload-zone" id="uploadZone">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            <p>Drag & drop ZIP/folder here</p>
+                            <span>or click to browse</span>
+                            <input type="file" id="fileInput" accept=".zip,.tar,.gz" hidden>
+                        </div>
+                    </div>
+                    <div class="tab-content" id="tab-bulk">
+                        <label class="input-label">Bulk Repository Links (one per line)</label>
+                        <textarea class="textarea" id="bulkLinks" rows="8" placeholder="https://github.com/org/repo1.git&#10;https://github.com/org/repo2.git&#10;..."></textarea>
+                        <button class="btn btn-primary" id="parseBulkBtn" style="margin-top:12px;">Parse Links</button>
+                    </div>
+                    <div class="source-queue" id="sourceQueue">
+                        <h3>Source Queue <span class="badge" id="queueCount">0</span></h3>
+                        <div class="queue-list" id="queueList"></div>
+                    </div>
+                </div>
+                <div class="options-panel">
+                    <h2 class="section-title">AI Model</h2>
+                    <div class="ai-config-inline" id="aiConfigInline">
+                        <div class="ai-config-row">
+                            <div class="ai-status-indicator" id="genModelStatus">
+                                <span class="status-dot" id="genModelDot" style="background:var(--text-muted)"></span>
+                                <span id="genModelName">No model configured</span>
+                            </div>
+                            <button class="btn-link" onclick="switchPage('settings')">Configure →</button>
+                        </div>
+                        <div class="ai-test-row hidden" id="aiTestRow">
+                            <input class="input" id="testPrompt" placeholder="Ask about your code... (test the model)" style="flex:1;font-size:0.82rem">
+                            <button class="btn btn-primary" id="testModelBtn" style="white-space:nowrap">Test</button>
+                        </div>
+                        <div class="ai-test-result hidden" id="aiTestResult"></div>
+                    </div>
+                    <h2 class="section-title" style="margin-top:20px">Generation Options</h2>
+                    <div class="option-group">
+                        <label class="toggle-label"><input type="checkbox" id="opt-all" checked><span class="toggle-switch"></span>Generate All</label>
+                        <div class="sub-options" id="subOptions">
+                            <label class="toggle-label"><input type="checkbox" class="doc-opt" data-doc="arch" checked><span class="toggle-switch"></span>Architecture Diagram</label>
+                            <label class="toggle-label"><input type="checkbox" class="doc-opt" data-doc="hld" checked><span class="toggle-switch"></span>High-Level Design (HLD)</label>
+                            <label class="toggle-label"><input type="checkbox" class="doc-opt" data-doc="lld" checked><span class="toggle-switch"></span>Low-Level Design (LLD)</label>
+                            <label class="toggle-label"><input type="checkbox" class="doc-opt" data-doc="flow" checked><span class="toggle-switch"></span>Flow Diagrams</label>
+                            <label class="toggle-label"><input type="checkbox" class="doc-opt" data-doc="func" checked><span class="toggle-switch"></span>Functional Explanation</label>
+                            <label class="toggle-label"><input type="checkbox" class="doc-opt" data-doc="api" checked><span class="toggle-switch"></span>API Catalog</label>
+                        </div>
+                    </div>
+                    <button class="btn btn-accent btn-lg" id="generateBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><polygon points="5,3 19,12 5,21 5,3"/></svg>
+                        Generate Documentation
+                    </button>
+                    <div class="progress-section hidden" id="progressSection">
+                        <div class="progress-header"><span id="progressLabel">Processing...</span><span id="progressPct">0%</span></div>
+                        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+                        <div class="progress-log" id="progressLog"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Page: Repositories -->
+        <div class="page" id="page-repos">
+            <div class="page-header">
+                <h1>Repository Explorer</h1>
+                <p class="page-desc">Browse and manage ingested repositories</p>
+            </div>
+            <div class="repo-list" id="repoList"></div>
+        </div>
+
+        <!-- Page: Compare -->
+        <div class="page" id="page-compare">
+            <div class="page-header">
+                <h1>Comparative Analysis</h1>
+                <p class="page-desc">Compare Generic vs Brand-Specific implementations</p>
+            </div>
+            <div class="compare-controls">
+                <div class="select-wrap">
+                    <label class="input-label">Base Implementation</label>
+                    <select class="select" id="compareBase"><option>Generic (Standard)</option></select>
+                </div>
+                <div class="vs-badge">VS</div>
+                <div class="select-wrap">
+                    <label class="input-label">Specific Implementation</label>
+                    <select class="select" id="compareTarget"><option>CitizenBank</option><option>WealthFirst</option><option>PayStream</option></select>
+                </div>
+                <button class="btn btn-primary" id="runCompare">Run Analysis</button>
+            </div>
+            <div class="compare-results" id="compareResults"></div>
+        </div>
+
+        <!-- Page: AI Settings -->
+        <div class="page" id="page-settings">
+            <div class="page-header">
+                <h1>AI Settings</h1>
+                <p class="page-desc">Configure your GitHub Copilot / GitHub Models API connection</p>
+            </div>
+            <div class="settings-layout">
+                <!-- Token Card -->
+                <div class="settings-card">
+                    <div class="settings-card-header">
+                        <div class="settings-icon">🔑</div>
+                        <div>
+                            <h3>GitHub Personal Access Token</h3>
+                            <p>Requires <code>models:read</code> permission. <a href="https://github.com/settings/tokens" target="_blank" class="link">Create token →</a></p>
+                        </div>
+                    </div>
+                    <div class="input-group" style="margin-top:16px">
+                        <input type="password" class="input" id="ghToken" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+                        <button class="btn btn-primary" id="saveTokenBtn">Save</button>
+                    </div>
+                    <div class="token-status hidden" id="tokenStatus"></div>
+                </div>
+
+                <!-- Model Picker Card -->
+                <div class="settings-card">
+                    <div class="settings-card-header">
+                        <div class="settings-icon">🤖</div>
+                        <div>
+                            <h3>Select AI Model</h3>
+                            <p>GitHub Copilot models available through GitHub Models API</p>
+                        </div>
+                    </div>
+                    <!-- Dropdown selector -->
+                    <div class="model-select-wrap" style="margin-top:20px">
+                        <label class="input-label">Active Model</label>
+                        <select class="select model-dropdown" id="modelDropdown">
+                            <option value="">— Choose a model —</option>
+                        </select>
+                    </div>
+                    <!-- Info panel for selected model -->
+                    <div class="model-info-panel hidden" id="modelInfoPanel">
+                        <div class="model-info-row">
+                            <div>
+                                <div class="model-info-name" id="modelInfoName"></div>
+                                <div class="model-info-id" id="modelInfoId"></div>
+                            </div>
+                            <div class="model-info-tags" id="modelInfoTags"></div>
+                        </div>
+                        <p class="model-info-desc" id="modelInfoDesc"></p>
+                    </div>
+                    <!-- Quick-reference grid (read only, visual only) -->
+                    <div class="model-ref-grid" id="modelRefGrid"></div>
+                </div>
+
+                <!-- Connection Test Card -->
+                <div class="settings-card">
+                    <div class="settings-card-header">
+                        <div class="settings-icon">⚡</div>
+                        <div>
+                            <h3>Connection Test</h3>
+                            <p>Verify your token and model work correctly</p>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:12px;margin-top:16px;align-items:flex-start">
+                        <textarea class="textarea" id="testPromptSettings" rows="3" placeholder="Send a test prompt to your selected model..." style="flex:1">Briefly explain what a payment gateway microservice does in 2 sentences.</textarea>
+                        <button class="btn btn-primary" id="testConnectionBtn" style="white-space:nowrap;align-self:flex-end">Send</button>
+                    </div>
+                    <div class="test-response hidden" id="testResponse">
+                        <div class="test-response-header">
+                            <span id="testModelUsed"></span>
+                            <span id="testResponseTime" class="response-time"></span>
+                        </div>
+                        <div class="test-response-body" id="testResponseBody"></div>
+                    </div>
+                </div>
+
+                <!-- API Info Card -->
+                <div class="settings-card settings-card-info">
+                    <h3>📡 API Configuration</h3>
+                    <table class="compare-table" style="margin-top:12px">
+                        <tr><th>Setting</th><th>Value</th></tr>
+                        <tr><td>Endpoint</td><td><code>https://models.inference.ai.azure.com/chat/completions</code></td></tr>
+                        <tr><td>Auth Header</td><td><code>Authorization: Bearer &lt;github_token&gt;</code></td></tr>
+                        <tr><td>Protocol</td><td>OpenAI-compatible REST API</td></tr>
+                        <tr><td>Token Scope</td><td><code>models:read</code></td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Doc Viewer Modal -->
+        <div class="modal-overlay hidden" id="docModal">
+            <div class="modal">
+                <div class="modal-header">
+                    <h2 id="modalTitle">Document</h2>
+                    <button class="btn-icon modal-close" id="modalClose">&times;</button>
+                </div>
+                <div class="modal-body" id="modalBody"></div>
+            </div>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
