@@ -909,14 +909,14 @@ function renderArchDiagram(bankId) {
         const archContainer = document.getElementById('archDiagram');
         if (archContainer) {
             archContainer.removeAttribute('data-processed');
-            archContainer.innerHTML = `<svg id="markmapSvg" style="width:100%; height:550px; outline: none; border-radius: 8px; background: rgba(30,41,59,0.5);"></svg>`;
+            archContainer.innerHTML = `<svg id="markmapSvg" style="width:100%; height:550px; outline: none; border-radius: 8px; background: rgba(30,41,59,0.5);"></svg>` + getDiagramExplainer('mindmap', isCitizen);
             setTimeout(() => {
                 if (window.markmap && window.markmap.Transformer) {
                     const transformer = new window.markmap.Transformer();
                     const { root } = transformer.transform(markdownStr);
                     window.markmap.Markmap.create('#markmapSvg', { autoFit: true }, root);
                 } else {
-                    archContainer.innerHTML = `<p style="color:var(--text-muted);padding:20px;">Unable to load interactive mindmap components. Please check your internet connection.</p>`;
+                    document.getElementById('markmapSvg').outerHTML = `<p style="color:var(--text-muted);padding:20px;">Unable to load interactive mindmap components. Please check your internet connection.</p>`;
                 }
             }, 100);
         }
@@ -925,7 +925,7 @@ function renderArchDiagram(bankId) {
         const archContainer = document.getElementById('archDiagram');
         if (archContainer) {
             archContainer.removeAttribute('data-processed');
-            archContainer.innerHTML = `<div id="cy" style="width:100%; height:550px; background: rgba(30,41,59,0.5); border-radius: 8px;"></div>`;
+            archContainer.innerHTML = `<div id="cy" style="width:100%; height:550px; background: rgba(30,41,59,0.5); border-radius: 8px;"></div>` + getDiagramExplainer('cytoscape', isCitizen);
             
             setTimeout(() => {
                 if (window.cytoscape) {
@@ -1092,12 +1092,90 @@ ${extraConnections}
         const archContainer = document.getElementById('archDiagram');
         if (archContainer) {
             archContainer.removeAttribute('data-processed');
-            archContainer.innerHTML = `<div class="mermaid">${archCode}</div>`;
+            archContainer.innerHTML = `<div class="mermaid">${archCode}</div>` + getDiagramExplainer('flowchart', isCitizen);
             if (window.mermaid) {
                 mermaid.run({ querySelector: '#archDiagram .mermaid' });
             }
         }
     }
+}
+
+// ══════════════════════════════════════════
+//  DIAGRAM EXPLAINER HELPER
+// ══════════════════════════════════════════
+function toggleExplainer(id) {
+    const body = document.getElementById('expBody_' + id);
+    const chevron = document.getElementById('expChev_' + id);
+    if (!body || !chevron) return;
+    const isOpen = body.classList.toggle('open');
+    chevron.classList.toggle('open', isOpen);
+}
+
+function buildExplainer(id, icon, title, bodyHtml) {
+    return `
+    <div class="diagram-explainer">
+        <div class="diagram-explainer-header" onclick="toggleExplainer('${id}')">
+            <span class="diagram-explainer-header-icon">${icon}</span>
+            <span class="diagram-explainer-header-title">${title}</span>
+            <svg id="expChev_${id}" class="diagram-explainer-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div id="expBody_${id}" class="diagram-explainer-body">
+            ${bodyHtml}
+        </div>
+    </div>`;
+}
+
+function getDiagramExplainer(format, isCitizen) {
+    const ctx = isCitizen ? 'CitizenBank' : 'Generic Banking';
+
+    if (format === 'mindmap') {
+        const ctxDetail = isCitizen
+            ? `<p>This mindmap represents <strong>CitizenBank's concrete implementation</strong>. The root branches out into four zones: <strong>Digital Channels</strong> (Mobile React Native app, Angular web portal, and an AWS API Gateway with Kafka/message-queue middleware hops), <strong>Cloud Security Edge</strong> (Cloudflare WAF + AWS Cognito), <strong>Microservices Layer</strong> (Retail Accounts Engine, SWIFT/ACH Integrator, ML Analytics &amp; Fraud — each showing their <code>/api/v1/...</code> endpoint path), and a <strong>Legacy Backend</strong> (Mainframe Ledger over TCP sockets and Card Management DB).</p>`
+            : `<p>This mindmap represents the <strong>Generic reference banking architecture</strong>. The root branches into: <strong>Channels</strong> (Web Portal, Mobile Banking, IVR, each with their API → Middleware → Kafka middleware chain), <strong>API Gateway</strong> (Kong/Apigee at <code>/api/gateway</code>), <strong>Core Banking Services</strong> (Account, Ledger, Payment, Loan — each with its <code>/api/v1/...</code> endpoint), and <strong>Risk &amp; Compliance</strong> (Fraud, KYC, AML).</p>`;
+        return buildExplainer('mindmap', '🗺️', 'How to read this Mindmap — Component & API Map',
+            `<p>This is an <strong>interactive, collapsible mindmap</strong> powered by Markmap (D3.js). It maps the entire ${ctx} system hierarchy — from high-level architectural zones down to specific API endpoint paths. <strong>Click any node</strong> to collapse or expand its subtree. <strong>Scroll or pinch to zoom.</strong></p>
+            ${ctxDetail}
+            <p><strong>How to read node depth:</strong> Nodes closer to the centre are higher-level zones (Channels, Gateway, Services). The further out a node is, the more specific it is — outer nodes represent individual API routes or infrastructure components like Kafka topics or TCP socket connections.</p>
+            <div class="explainer-tip"><strong>💡 Tip:</strong> Use this view to quickly answer <em>"which endpoint belongs to which domain?"</em> — follow any leaf node upward through the branch to trace its domain, service, and channel lineage.</div>`);
+    }
+
+    if (format === 'cytoscape') {
+        const ctxDetail = isCitizen
+            ? `<div class="explainer-flow-step"><div class="explainer-flow-num">1</div><div class="explainer-flow-text"><strong>Digital Channels zone</strong> — Web (Angular) and Mobile (React Native) are the user-facing entry points. All traffic routes through the <strong>AWS API Gateway</strong> (green diamond).</div></div>
+               <div class="explainer-flow-step"><div class="explainer-flow-num">2</div><div class="explainer-flow-text"><strong>Microservices Layer zone</strong> — The gateway fans out to the <strong>Retail Accounts Engine</strong> and the <strong>SWIFT/ACH Integrator</strong>. Payments route through ML Fraud scoring before processing.</div></div>
+               <div class="explainer-flow-step"><div class="explainer-flow-num">3</div><div class="explainer-flow-text"><strong>Legacy Backend zone</strong> — Accounts persist to the <strong>Mainframe Ledger</strong>; accounts also connect to <strong>Card Management DB</strong> for card lifecycle operations. Note: no IVR or Loan engine — CitizenBank is digital-first.</div></div>`
+            : `<div class="explainer-flow-step"><div class="explainer-flow-num">1</div><div class="explainer-flow-text"><strong>Channels zone</strong> — Web Portal, Mobile App, and IVR System all funnel into the <strong>Kong/Apigee Gateway</strong> (green diamond). This is the single ingress point for all external traffic.</div></div>
+               <div class="explainer-flow-step"><div class="explainer-flow-num">2</div><div class="explainer-flow-text"><strong>Core Banking zone</strong> — Gateway fans out to Account Service, Payment Orchestrator, and Loan Engine. Account and Payment both write to the <strong>Ledger Engine</strong>.</div></div>
+               <div class="explainer-flow-step"><div class="explainer-flow-num">3</div><div class="explainer-flow-text"><strong>Risk &amp; Compliance zone</strong> — Payments trigger inline <strong>Fraud Detection</strong>. Loan applications chain through <strong>KYC → AML</strong>. Fraud Engine reads from Redis cache and publishes alerts to Kafka.</div></div>
+               <div class="explainer-flow-step"><div class="explainer-flow-num">4</div><div class="explainer-flow-text"><strong>Data Layer zone</strong> — PostgreSQL for persistent storage, Redis for low-latency fraud caching, and Kafka as the event bus for async communication between services.</div></div>`;
+        return buildExplainer('cytoscape', '🔗', 'How to read this System Dependency Map (HLD)',
+            `<p>This is an <strong>interactive High-Level Design graph</strong> powered by Cytoscape.js using a force-directed (CoSE) layout. It shows how architectural zones, services, and components are interconnected. <strong>Drag nodes</strong> to explore relationships. <strong>Scroll to zoom.</strong></p>
+            <div class="explainer-legend">
+                <div class="explainer-legend-item"><span class="explainer-legend-dot" style="background:#7c3aed"></span> Microservice / component node</div>
+                <div class="explainer-legend-item"><span class="explainer-legend-diamond" style="background:#10b981"></span> API Gateway (single ingress)</div>
+                <div class="explainer-legend-item"><span class="explainer-legend-dot" style="background:rgba(15,23,42,0.8);border:2px solid #334155"></span> Compound zone (logical group)</div>
+            </div>
+            <p><strong>Key data flows for ${ctx}:</strong></p>
+            ${ctxDetail}
+            <div class="explainer-tip"><strong>💡 Tip:</strong> Arrows always point <em>downstream</em> — in the direction data flows (request or event). A service with many incoming edges is a critical dependency; a service with many outgoing edges is an orchestrator or gateway.</div>`);
+    }
+
+    if (format === 'flowchart') {
+        const ctxDetail = isCitizen
+            ? `<p>CitizenBank extends the generic flowchart with two extra <strong>Channels</strong> nodes: <strong>IVR System</strong> and <strong>ATM Network</strong> — reflecting CitizenBank's multi-channel reach. The API Gateway is labelled <strong>Kong GW + WAF + MFA</strong> (stepped-up authentication and Web Application Firewall). Core services include <strong>Payment (SWIFT gpi)</strong> and the compliance layer uses <strong>ML Fraud Engine</strong> and <strong>Bio KYC Service</strong> — reflecting CitizenBank's ML hybrid fraud detection and biometric KYC as shown in the comparative analysis.</p>`
+            : `<p>The generic flowchart shows five layers: <strong>Channels</strong> (Web, Mobile, IVR), <strong>API Gateway</strong> (Kong/Apigee), <strong>Core Banking Services</strong> (Account, Ledger, Payment, Loan), <strong>Risk &amp; Compliance</strong> (Fraud, KYC, AML), and the <strong>Data Layer</strong> (PostgreSQL, Redis, Kafka). All channel traffic converges on the gateway before fanning out to services.</p>`;
+        return buildExplainer('flowchart', '📐', 'How to read this Mermaid Flowchart (LLD)',
+            `<p>This is a <strong>Low-Level Design (LLD) flowchart</strong> rendered by Mermaid.js (top-to-bottom layout). It breaks the system into five horizontal subgraph layers, showing structural relationships within and between layers using directed arrows (<code>--&gt;</code>).</p>
+            ${ctxDetail}
+            <p><strong>Key flows to trace:</strong></p>
+            <div class="explainer-flow-step"><div class="explainer-flow-num">1</div><div class="explainer-flow-text"><strong>All channels → Gateway</strong> — No service is ever called directly from a client. Every request is gated and authenticated at the API Gateway layer first.</div></div>
+            <div class="explainer-flow-step"><div class="explainer-flow-num">2</div><div class="explainer-flow-text"><strong>Account + Payment → Ledger</strong> — Both Account and Payment services write to the Ledger Engine, which enforces double-entry accounting and ACID guarantees before persisting to PostgreSQL.</div></div>
+            <div class="explainer-flow-step"><div class="explainer-flow-num">3</div><div class="explainer-flow-text"><strong>Payment → Fraud → Cache/Kafka</strong> — Every payment is screened inline by Fraud Detection. Results are cached in Redis for low-latency repeat lookups, and fraud events are published to the Kafka event bus for downstream case management.</div></div>
+            <div class="explainer-flow-step"><div class="explainer-flow-num">4</div><div class="explainer-flow-text"><strong>Loan → KYC → AML</strong> — Loan origination requires a sequential compliance chain. KYC identity verification must pass before AML watchlist screening is triggered.</div></div>
+            <div class="explainer-tip"><strong>💡 Tip:</strong> Subgraph boundaries represent <em>deployment zones or team ownership boundaries</em>. Services within the same subgraph typically share a network namespace, whereas cross-subgraph arrows often represent synchronous HTTP calls or async Kafka events.</div>`);
+    }
+
+    return '';
 }
 
 function openDomainDocs(domainId) {
@@ -1174,11 +1252,60 @@ function getDomainDocContent(domain) {
     C --> F[(Redis Cache)]`
     };
     const diagram = flows[domain.id] || flows.accounts;
+
+    const domainExplainerContent = {
+        loans: `<p>This <strong>sequence diagram</strong> traces a complete loan origination lifecycle. Participants are laid out left-to-right: Customer (initiator), Loan API (orchestrator), Credit Bureau (external), Underwriting Engine (decision maker), and Ledger (state recorder).</p>
+                <div class="explainer-flow-step"><div class="explainer-flow-num">1</div><div class="explainer-flow-text"><strong>Customer → Loan API:</strong> Application submitted with personal, income, and collateral data.</div></div>
+                <div class="explainer-flow-step"><div class="explainer-flow-num">2</div><div class="explainer-flow-text"><strong>Loan API → Credit Bureau:</strong> Hard credit inquiry issued. The bureau returns a score and tradeline history.</div></div>
+                <div class="explainer-flow-step"><div class="explainer-flow-num">3</div><div class="explainer-flow-text"><strong>Loan API → Underwriting:</strong> Score + application forwarded for policy review. Underwriting returns Approved, Conditionally Approved, or Denied.</div></div>
+                <div class="explainer-flow-step"><div class="explainer-flow-num">4</div><div class="explainer-flow-text"><strong>Loan API → Ledger:</strong> On approval, a loan account entry is created in the double-entry ledger. A disbursement debit is queued.</div></div>
+                <div class="explainer-flow-step"><div class="explainer-flow-num">5</div><div class="explainer-flow-text"><strong>Loan API → Customer:</strong> Decision notification sent via async channel (email/push). Customer sees status update in their portal.</div></div>
+                <div class="explainer-tip"><strong>💡 Note:</strong> Dashed arrows (<code>--&gt;&gt;</code>) represent responses. Solid arrows (<code>-&gt;&gt;</code>) represent requests. The Loan API never directly contacts the Ledger on denial — only approved paths reach the persistence layer.</div>`,
+        payments: `<p>This <strong>sequence diagram</strong> models a real-time payment flow with inline fraud screening. Participants: Sender (payer), Payment Orchestrator (central coordinator), Fraud Detection (risk engine), RTP Network (clearing), and Ledger (accounting).</p>
+                <div class="explainer-flow-step"><div class="explainer-flow-num">1</div><div class="explainer-flow-text"><strong>Sender → Payment Orchestrator:</strong> Payment initiated with amount, beneficiary, and payment rail (ACH, RTP, SWIFT).</div></div>
+                <div class="explainer-flow-step"><div class="explainer-flow-num">2</div><div class="explainer-flow-text"><strong>Orchestrator → Fraud Detection:</strong> Synchronous risk screening call. A risk score of 0–100 is returned in under 50ms; high-score payments are blocked here.</div></div>
+                <div class="explainer-flow-step"><div class="explainer-flow-num">3</div><div class="explainer-flow-text"><strong>Orchestrator → RTP Network:</strong> Payment instruction submitted to the clearing network. Confirmation receipt returned once network accepts the message.</div></div>
+                <div class="explainer-flow-step"><div class="explainer-flow-num">4</div><div class="explainer-flow-text"><strong>Orchestrator → Ledger:</strong> Debit payer's account, credit beneficiary's account. The Ledger enforces ACID constraints to prevent double-spend.</div></div>
+                <div class="explainer-tip"><strong>💡 Note:</strong> Fraud Detection is a <em>synchronous gate</em> — not an async event. Payments do not reach the clearing network until a low-risk confirmation is received. This is the critical path for latency.</div>`,
+        fraud: `<p>This <strong>sequence diagram</strong> shows a <em>hybrid fraud evaluation model</em> combining deterministic rules and an ML scoring engine. Participants: Transaction (event), Rules Engine (policy logic), ML Model (XGBoost scorer), and Case Manager (human-in-the-loop workflow).</p>
+                <div class="explainer-flow-step"><div class="explainer-flow-num">1</div><div class="explainer-flow-text"><strong>Transaction → Rules Engine &amp; ML Model (parallel):</strong> The transaction payload is broadcast simultaneously to both the legacy rules engine and the ML inference service. Neither blocks the other.</div></div>
+                <div class="explainer-flow-step"><div class="explainer-flow-num">2</div><div class="explainer-flow-text"><strong>ML Model → Rules Engine:</strong> The ML risk score (0.0–1.0) is fed back into the rules engine to be combined with deterministic signals (velocity, geography, device fingerprint).</div></div>
+                <div class="explainer-flow-step"><div class="explainer-flow-num">3</div><div class="explainer-flow-text"><strong>Rules Engine → Case Manager:</strong> Transactions exceeding the composite risk threshold are escalated as fraud cases. The Case Manager handles SLA-based investigation queues.</div></div>
+                <div class="explainer-flow-step"><div class="explainer-flow-num">4</div><div class="explainer-flow-text"><strong>Case Manager → Transaction:</strong> Returns a Block or Allow signal. Blocked transactions trigger cardholder notifications and may initiate step-up authentication.</div></div>
+                <div class="explainer-tip"><strong>💡 Note:</strong> The hybrid model ensures the system degrades gracefully — if the ML model is unavailable, the deterministic rules engine still operates as a standalone gate, preventing total failure.</div>`,
+        kyc: `<p>This <strong>sequence diagram</strong> models the Know Your Customer sequential compliance chain. Participants: Customer, KYC Service (orchestrator), ID Verification Service (external identity provider), and AML Screening (watchlist checker).</p>
+                <div class="explainer-flow-step"><div class="explainer-flow-num">1</div><div class="explainer-flow-text"><strong>Customer → KYC Service:</strong> Customer uploads identity documents (passport, driver's licence). Documents are encrypted in transit and stored in a secure vault.</div></div>
+                <div class="explainer-flow-step"><div class="explainer-flow-num">2</div><div class="explainer-flow-text"><strong>KYC Service → ID Verification:</strong> Documents forwarded to an external identity verification provider (e.g., Onfido, Jumio). Verification includes biometric liveness checks in CitizenBank's implementation.</div></div>
+                <div class="explainer-flow-step"><div class="explainer-flow-num">3</div><div class="explainer-flow-text"><strong>KYC Service → AML Screening:</strong> Once identity is verified, the customer's name and details are screened against OFAC, UN, and EU sanctions watchlists.</div></div>
+                <div class="explainer-flow-step"><div class="explainer-flow-num">4</div><div class="explainer-flow-text"><strong>KYC Service → Customer:</strong> Status update returned — Clear (onboard), Flagged (manual review), or Rejected. Flagged cases enter a case management queue.</div></div>
+                <div class="explainer-tip"><strong>💡 Note:</strong> The chain is <em>sequential</em> by design — AML screening only runs after ID verification succeeds. This prevents wasted compute on identities that cannot even be confirmed, and ensures regulatory sequencing is respected.</div>`,
+        wealth: `<p>This <strong>left-to-right flow diagram</strong> traces the wealth management lifecycle as a linear pipeline. Unlike sequence diagrams, this shows process stages rather than inter-system communication — each box is a functional stage, not a separate system.</p>
+                <div class="explainer-flow-step"><div class="explainer-flow-num">1</div><div class="explainer-flow-text"><strong>Client Onboarding:</strong> Customer profile created, investment objectives captured, suitability assessment completed (MiFID II / FINRA compliance).</div></div>
+                <div class="explainer-flow-step"><div class="explainer-flow-num">2</div><div class="explainer-flow-text"><strong>Risk Profiling:</strong> Questionnaire-based (generic) or AI-driven behavioural analysis (WealthFirst). Output is a risk tolerance score (Conservative / Balanced / Aggressive).</div></div>
+                <div class="explainer-flow-step"><div class="explainer-flow-num">3</div><div class="explainer-flow-text"><strong>Portfolio Construction:</strong> Asset allocation model applied based on risk profile. ESG scoring and goal-based weighting applied in advanced implementations.</div></div>
+                <div class="explainer-flow-step"><div class="explainer-flow-num">4</div><div class="explainer-flow-text"><strong>Auto-Rebalancing:</strong> Portfolio drift from target allocations triggers automatic rebalancing events (threshold-based or calendar-based).</div></div>
+                <div class="explainer-flow-step"><div class="explainer-flow-num">5</div><div class="explainer-flow-text"><strong>Performance Reporting:</strong> Real-time interactive dashboards (advanced) or periodic PDF statements (standard) summarising returns, attribution, and fees.</div></div>
+                <div class="explainer-tip"><strong>💡 Note:</strong> This pipeline is cyclic in practice — performance reporting feeds back into risk profiling at regular review intervals (typically annually or after major market events).</div>`,
+        accounts: `<p>This <strong>top-to-bottom structural diagram</strong> shows the internal layering of the Core Banking account management system. Unlike sequence diagrams, it shows the <em>architectural layers</em> of the system rather than a specific request flow.</p>
+                <div class="explainer-flow-step"><div class="explainer-flow-num">1</div><div class="explainer-flow-text"><strong>Customer Portal → Account API:</strong> All UI-initiated actions (view balance, initiate transfer, update details) enter through the API layer. The API validates authentication tokens and authorises the request.</div></div>
+                <div class="explainer-flow-step"><div class="explainer-flow-num">2</div><div class="explainer-flow-text"><strong>Account API → Account Service:</strong> Business logic layer that handles account state transitions (open, close, freeze, unfreeze). Enforces business rules before delegation to persistence.</div></div>
+                <div class="explainer-flow-step"><div class="explainer-flow-num">3</div><div class="explainer-flow-text"><strong>Account Service → Ledger Engine:</strong> All balance-modifying operations (credits, debits) are delegated to the Ledger, which maintains double-entry integrity and auditability.</div></div>
+                <div class="explainer-flow-step"><div class="explainer-flow-num">4</div><div class="explainer-flow-text"><strong>Ledger Engine → PostgreSQL:</strong> Final persistence of journal entries to a relational database supporting ACID transactions. Provides the source-of-truth for regulatory reporting.</div></div>
+                <div class="explainer-flow-step"><div class="explainer-flow-num">5</div><div class="explainer-flow-text"><strong>Account Service → Redis Cache:</strong> Account balances and session state are cached in Redis for fast read operations (e.g., balance checks, transaction history queries) without hitting the database on every request.</div></div>
+                <div class="explainer-tip"><strong>💡 Note:</strong> The Redis cache sits on the Account Service layer — <em>not</em> on the Ledger. This is intentional: only non-critical, read-heavy data is cached. The Ledger always writes directly to PostgreSQL to maintain consistency.</div>`
+    };
+
+    const domainExp = domainExplainerContent[domain.id] || domainExplainerContent['accounts'];
+    const isSequence = ['loans','payments','fraud','kyc'].includes(domain.id);
+    const diagramType = isSequence ? 'Sequence Diagram' : 'Flow Diagram';
+    const diagramIcon = isSequence ? '🔄' : '📊';
+
     return `
         <h3>📋 Functional Overview</h3>
         <p>${domain.desc}</p>
         <h3>📊 Flow Diagram</h3>
         <div class="mermaid">${diagram}</div>
+        ${buildExplainer('domain_' + domain.id, diagramIcon, 'How to read this ' + diagramType + ' — ' + domain.name, domainExp)}
         <h3>🔗 API Endpoints</h3>
         <table class="compare-table">
             <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
@@ -1260,6 +1387,17 @@ function runComparison() {
         S2 --> S5[Services + ML]
         S5 --> S6[(DB + Cache)]
     end</div>
+            ${buildExplainer('compare_' + targetId, '🏗️', 'How to read this Architecture Diff — Generic Standard vs ' + bank.name,
+                `<p>This <strong>left-to-right Mermaid flowchart</strong> places the <strong>Generic Standard baseline</strong> (left subgraph) directly alongside the <strong>${bank.name}-specific implementation</strong> (right subgraph), making architectural divergences immediately visible.</p>
+                <p><strong>Left subgraph — Generic Standard:</strong> A minimal 4-node reference blueprint — Web client, API Gateway, Services layer, and a Database. This represents the floor: the minimum viable implementation any institution starts with.</p>
+                <p><strong>Right subgraph — ${bank.name}:</strong> Starts with the same Web + Mobile channels routing into an enhanced <strong>API GW + WAF</strong> (with security hardening), a <strong>Services + ML layer</strong> indicating AI-augmented processing, and a <strong>DB + Cache</strong> persistence tier. The highlighted extension nodes specific to ${bank.name} are:</p>
+                <div class="explainer-legend">
+                    <div class="explainer-legend-item" style="border-color:rgba(124,58,237,0.4)">🟣 Override — Replaced standard implementation entirely</div>
+                    <div class="explainer-legend-item" style="border-color:rgba(245,158,11,0.4)">🟡 Custom — Extended standard with additional capability</div>
+                    <div class="explainer-legend-item" style="border-color:rgba(16,185,129,0.4)">🟢 Standard — Unchanged from generic baseline</div>
+                </div>
+                <p>Read the <strong>feature table above</strong> to trace each row to its tag type. Override rows mean ${bank.name} has fundamentally replaced a standard component (e.g., ML fraud vs rule-based). Custom rows mean an additive extension was built on top of the standard (e.g., biometric KYC on top of standard 3-step).</p>
+                <div class="explainer-tip"><strong>💡 Tip:</strong> The number and type of overrides reflect the institution's architectural maturity and strategic differentiation. A high override count (like NeoBankX's 5 overrides) signals a greenfield, cloud-native institution. A low count (like UnionCore's 1 override) signals a conservative, compliance-heavy institution preserving legacy systems.</div>`)}
         </div>
         <div class="compare-card">
             <h3>📋 Summary — ${bank.name} (${bank.type})</h3>
